@@ -1,0 +1,31 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ES2022"],
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "outDir": "dist",
+    "rootDir": ".",
+    "baseUrl": ".",
+    "paths": {
+      "@content-production/*": ["packages/content-production/*"],
+      "@free-production/*": ["packages/free-production/*"],
+      "@publish-engine/*": ["packages/publish-engine/*"],
+      "@ai-provider/*": ["packages/ai-provider/*"]
+    }
+  },
+  "include": [
+    "packages/**/*.ts",
+    "servers/**/*.ts",
+    "tests/**/*.ts"
+  ],
+  "exclude": ["node_modules", "dist"]
+}

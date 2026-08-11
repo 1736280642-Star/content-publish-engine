@@ -1,0 +1,29 @@
+{
+  "name": "content-publish-engine",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AI content production and multi-platform publish engine for the Chinese content ecosystem",
+  "type": "module",
+  "exports": {
+    "./content-production": "./packages/content-production/index.ts",
+    "./free-production": "./packages/free-production/index.ts",
+    "./publish-engine": "./packages/publish-engine/index.ts",
+    "./platforms": "./packages/platforms/index.mjs",
+    "./ai-provider": "./packages/ai-provider/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "node --test tests/*.test.*js"
+  },
+  "dependencies": {
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.0",
+    "tsx": "^4.7.0",
+    "@types/node": "^20.14.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
