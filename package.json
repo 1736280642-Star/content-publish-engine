@@ -5,17 +5,30 @@
   "description": "AI content production and multi-platform publish engine for the Chinese content ecosystem",
   "type": "module",
   "exports": {
-    "./content-production": "./packages/content-production/index.ts",
-    "./free-production": "./packages/free-production/index.ts",
-    "./publish-engine": "./packages/publish-engine/index.ts",
+    "./content-production": {
+      "types": "./packages/content-production/index.ts",
+      "default": "./packages/content-production/index.ts"
+    },
+    "./free-production": {
+      "types": "./packages/free-production/index.ts",
+      "default": "./packages/free-production/index.ts"
+    },
+    "./publish-engine": {
+      "types": "./packages/publish-engine/index.ts",
+      "default": "./packages/publish-engine/index.ts"
+    },
     "./platforms": "./packages/platforms/index.mjs",
-    "./ai-provider": "./packages/ai-provider/index.ts",
+    "./ai-provider": {
+      "types": "./packages/ai-provider/index.ts",
+      "default": "./packages/ai-provider/index.ts"
+    },
     "./mcp-server": "./servers/publish-mcp-server.mjs"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "node --import tsx --test tests/*.test.*js",
-    "mcp:start": "node --import tsx servers/publish-mcp-server.mjs"
+    "mcp:start": "node --import tsx servers/publish-mcp-server.mjs",
+    "prepublishOnly": "npm run typecheck && npm test"
   },
   "dependencies": {
     "@modelcontextprotocol/server": "^2.0.0",
@@ -28,5 +41,12 @@
   },
   "engines": {
     "node": ">=20.0.0"
-  }
+  },
+  "files": [
+    "packages/",
+    "servers/",
+    "tests/",
+    "README.md",
+    "tsconfig.json"
+  ]
 }

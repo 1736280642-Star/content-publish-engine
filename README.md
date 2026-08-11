@@ -1,5 +1,7 @@
 # content-publish-engine
 
+![CI](https://github.com/user/content-publish-engine/actions/workflows/ci.yml/badge.svg)
+
 AI content production and multi-platform publish engine for the Chinese content ecosystem.
 
 ## Features
@@ -49,7 +51,10 @@ content-publish-engine/
 │   ├── publish-engine/         # Multi-platform publish engine (12 modules)
 │   ├── platforms/              # Platform protocol library (7 modules, .mjs)
 │   └── ai-provider/           # AI Provider unified layer (2 modules)
-├── tests/                      # Test suite
+├── servers/
+│   └── publish-mcp-server.mjs  # Standalone MCP server (7 tools, direct SDK)
+├── tests/                      # Test suite (34 tests)
+├── .github/workflows/ci.yml   # GitHub Actions CI
 ├── package.json
 └── tsconfig.json
 ```
@@ -114,6 +119,24 @@ const result = await callAiProvider({
 });
 ```
 
+### MCP Server
+
+The standalone MCP server provides 7 tools with direct SDK access (no HTTP proxy):
+
+```bash
+npm run mcp:start
+```
+
+| Tool | Description |
+|------|-------------|
+| `platform_auth_probe` | Check platform adapter authentication status |
+| `publish_content_preflight` | Evaluate content against platform publishing rules |
+| `publish_job_create` | Create an idempotent publish job from a draft |
+| `publish_job_run` | Execute a publish job via the platform adapter |
+| `publish_job_get` | Read job status from the local job store |
+| `publish_job_verify` | Verify a submitted job and resolve its public URL |
+| `publish_liveness_check` | Check article liveness and advance lifecycle state |
+
 ## Environment Variables
 
 ### AI Provider
@@ -136,6 +159,7 @@ const result = await callAiProvider({
 | `WECHATSYNC_BRIDGE_TOKEN` | Bridge auth token | — |
 | `DIRECT_PUBLISH_STABLE_AFTER_HOURS` | Stable window | `72` |
 | `DIRECT_PUBLISH_VERIFICATION_TIMEOUT_HOURS` | Verification timeout | `168` |
+| `PUBLISH_JOB_STORE_PATH` | MCP server job store path | `.data/publish-jobs.json` |
 
 ## License
 
