@@ -1,18 +1,18 @@
 // Types
-export * from "./types";
-export * from "./adapter-types";
+export * from "./types.js";
+export * from "./adapter-types.js";
 
 // Transport
-export { BridgeTransport, getDefaultTransport, setDefaultTransport, type FormalPublishTransport } from "./transport";
+export { BridgeTransport, getDefaultTransport, setDefaultTransport, type FormalPublishTransport } from "./transport.js";
 
 // Adapters
-export { getPublishAdapter, getDirectPublishPlatforms, coerceDirectPublishPlatform } from "./adapters";
+export { getPublishAdapter, getDirectPublishPlatforms, coerceDirectPublishPlatform } from "./adapters.js";
 
 // Engineering primitives
-export * from "./lifecycle";
-export * from "./reliability";
-export * from "./idempotency";
-export * from "./content-preflight";
-export * from "./mutation-queue";
-export * from "./verification-queue";
-export * from "./platform-results";
+export * from "./lifecycle.js";
+export * from "./reliability.js";
+export * from "./idempotency.js";
+export * from "./content-preflight.js";
+export * from "./mutation-queue.js";
+export * from "./verification-queue.js";
+export * from "./platform-results.js";

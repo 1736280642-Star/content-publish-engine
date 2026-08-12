@@ -6,8 +6,8 @@ import type {
   FreeProductionBatch,
   FreeProductionInputSnapshot,
   RiskAndGapItem
-} from "./contracts";
-import { FREE_PRODUCTION_CHANNELS } from "./contracts";
+} from "./contracts.js";
+import { FREE_PRODUCTION_CHANNELS } from "./contracts.js";
 
 export interface BrandConfig {
   name: string;
@@ -16,7 +16,7 @@ export interface BrandConfig {
 }
 
 const DEFAULT_BRAND: BrandConfig = {
-  name: "JOTO AI",
+  name: "Content Publish Engine",
   primaryColor: "#4577da",
 };
 

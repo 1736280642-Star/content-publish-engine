@@ -255,7 +255,7 @@ export interface ContentDraftArtifact {
   sourceExcerpts: FreeProductionSourceExcerpt[];
   sourceReview?: { artifactId: string; reviewedBy: string; reviewedAt: string };
   wechatPresentation?: {
-    templateId: "joto-official-v1";
+    templateId: "default-wechat-v1";
     previewHtml: string;
     publishHtml: string;
     htmlHash: string;

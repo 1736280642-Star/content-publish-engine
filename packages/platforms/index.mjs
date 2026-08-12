@@ -20,8 +20,8 @@ export {
 } from "./wechat-content.mjs";
 
 export {
-  collectWorkbenchMediaIds,
-  rewriteWorkbenchMediaSources,
+  collectContentMediaIds,
+  rewriteContentMediaSources,
 } from "./media-rewrite.mjs";
 
 export {

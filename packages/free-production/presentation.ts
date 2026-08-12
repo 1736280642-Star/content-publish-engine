@@ -3,7 +3,7 @@ import type {
   FreeProductionBatch,
   FreeProductionStatus,
   RiskAndGapItem
-} from "./contracts";
+} from "./contracts.js";
 
 export const OBSOLETE_FREE_PRODUCTION_RISK_KEYS = new Set(["launch_status", "cta_url"]);
 

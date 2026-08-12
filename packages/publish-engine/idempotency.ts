@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import type { DirectPublishPlatformKey } from "./types";
+import type { DirectPublishPlatformKey } from "./types.js";
 
 function sha256(value: string) {
   return createHash("sha256").update(value, "utf8").digest("hex");

@@ -1,4 +1,4 @@
-import type { AiProviderKey } from "./provider";
+import type { AiProviderKey } from "./provider.js";
 
 const providerRequiredEnv: Record<AiProviderKey, string[]> = {
   qwen: ["DASHSCOPE_API_KEY", "QWEN_MODEL"],

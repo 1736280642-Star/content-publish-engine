@@ -1,166 +1,118 @@
 # content-publish-engine
 
-![CI](https://github.com/user/content-publish-engine/actions/workflows/ci.yml/badge.svg)
+An experimental TypeScript engine for governed AI content production and multi-platform publishing in the Chinese content ecosystem.
 
-AI content production and multi-platform publish engine for the Chinese content ecosystem.
+> Status: `v0.1 experimental`. The deterministic production, validation, persistence, and lifecycle primitives are usable. Real publishing requires an authorized local bridge or a custom transport and must be validated against each platform's current rules.
 
-## Features
+## What it provides
 
-### Content Production
+- A frozen production contract that combines evidence, product, content-type, channel, expression, and promotion rules.
+- Deterministic output checks for structure, traceable facts, prohibited terms, CTA integrity, URLs, and cross-channel similarity.
+- WeChat, Juejin, CSDN, and Zhihu adapter contracts with `mock`, disabled, and real modes.
+- Idempotent publish jobs, platform locks, persisted results, verification backoff, liveness states, and reliability metrics.
+- Qwen, DeepSeek, and Doubao through an OpenAI-compatible provider interface.
+- A standalone MCP server exposing publish preparation, execution, verification, and liveness tools.
 
-- **Production Contract Compiler** — Compile task, evidence, product rules, channel rules, and expression rules into a single immutable `ProductionContractSnapshot` with 7 consistency assertions.
-- **Output Validator** — Validate AI-generated markdown against the contract: title match, length range, required sections/artifacts, prohibited terms, fact trace verification, CTA integrity, URL allowlist, sensitive output detection, cross-channel similarity (shingle).
-- **Promotion Resolver** — Deterministic CTA selection engine with multi-dimensional ranking (entity, channel, intent, content type, primary entity, priority) and conflict detection.
-- **Production Service** — Orchestrate generate → validate → repair → re-validate with 3x technical retry and 1x repair attempt.
-- **Free Production** — Lightweight content production framework with expression presets, risk/gap panels, file-based state repository, and brand-configurable WeChat layout renderer.
+## Safety model
 
-### Publish Engine
+Real publishing is disabled by default. Without `DIRECT_PUBLISH_ENABLED=true`, adapters run in mock mode unless `DIRECT_PUBLISH_MOCK=false` explicitly disables publishing. The built-in bridge transport only accepts loopback hosts and requires a bearer token.
 
-- **Multi-platform Adapters** — WeChat, Juejin, CSDN, Zhihu adapters with `checkAuth / validatePayload / publish / verify` four-phase interface and `mock / dry_run / real` mode switching.
-- **Transport Injection** — Pluggable `FormalPublishTransport` interface with default `BridgeTransport` implementation for local bridge communication.
-- **Verification Lifecycle** — Backoff-based verification scheduling with stable window (72h default), timeout detection (168h default), and state machine for `public_observed → stable_published → removed_after_publish`.
-- **Reliability Metrics** — Submission acceptance rate, public conversion rate, 24h/72h survival rates, risk block rate, duplicate publish rate, URL backfill latency.
-- **Rollout Readiness** — Threshold-based readiness evaluation with configurable blockers.
-- **Engineering Primitives** — SHA256 idempotency keys, serialized mutation queue, observed verification deduplication, platform result merging.
-- **Content Preflight** — Pre-publish content checks: title length, content depth, promotion risk, external link count, with Juejin-specific strict rules and one-time rewrite.
+The project does not ship browser selectors, cookies, platform credentials, or mechanisms intended to bypass CAPTCHA or platform risk controls. Use only accounts, APIs, and automation methods you are authorized to operate.
 
-### Platform Protocol Library
+## Requirements
 
-- **CSDN Gateway** — HMAC-SHA256 API gateway header generation.
-- **CSDN Format** — Markdown normalization (heading hierarchy shift, collapsed heading expansion) and HTML rendering.
-- **WeChat Publish** — Formal publish status normalization and polling verification.
-- **WeChat Content** — Article content format resolution (wechat_html or markdown).
-- **Media Rewrite** — `workbench-media://` protocol to HTTPS URL rewriting.
-- **Job Store** — File-based publish job queue with platform-level mutex locks and lease management.
-- **Idempotency Ledger** — File-based idempotency tracking.
+- Node.js 20 or newer
+- npm 10 or newer recommended
 
-### AI Provider
-
-- Unified calling layer for Qwen (DashScope), DeepSeek, and Doubao.
-- OpenAI-compatible `chat/completions` interface.
-- Timeout control, network/authentication error normalization.
-- Standalone environment variable detection (no runtime-config dependency).
-
-## Project Structure
-
-```
-content-publish-engine/
-├── packages/
-│   ├── content-production/     # Content production domain model (5 modules)
-│   ├── free-production/        # Free content production framework (6 modules)
-│   ├── publish-engine/         # Multi-platform publish engine (12 modules)
-│   ├── platforms/              # Platform protocol library (7 modules, .mjs)
-│   └── ai-provider/           # AI Provider unified layer (2 modules)
-├── servers/
-│   └── publish-mcp-server.mjs  # Standalone MCP server (7 tools, direct SDK)
-├── tests/                      # Test suite (34 tests)
-├── .github/workflows/ci.yml   # GitHub Actions CI
-├── package.json
-└── tsconfig.json
-```
-
-## Quick Start
+## Install and verify
 
 ```bash
-npm install
-npm run typecheck
-npm test
+npm ci
+npm run check
 ```
 
-## Usage
+`npm run check` runs TypeScript checks, JavaScript syntax checks, tests, a clean build, and import checks against the built package.
 
-### Content Production
+## Package entry points
 
 ```typescript
-import { compileProductionContract, validateProductionOutput, runContentProduction } from "content-publish-engine/content-production";
-
-const contract = compileProductionContract({
-  task, evidencePack, productRule, contentTypeRule, channelRule, expressionRule,
-  governance, promotionProfiles
-});
-
-const result = await runContentProduction({ contract, model: yourAiModel });
+import { compileProductionContract } from "content-publish-engine/content-production";
+import { getCalendarMonthBounds } from "content-publish-engine/free-production";
+import { getPublishAdapter, setDefaultTransport } from "content-publish-engine/publish-engine";
+import { createBrowserPublishJobStore } from "content-publish-engine/platforms";
+import { callAiProvider } from "content-publish-engine/ai-provider";
 ```
 
-### Publish Engine
+The repository can be used directly after `npm run build`. Publishing to npm is optional; before doing so, add the final GitHub `repository`, `bugs`, and `homepage` metadata to `package.json`.
+
+## Mock publishing
 
 ```typescript
-import { getPublishAdapter, preflightPublishContent, buildPublishIdempotencyKey } from "content-publish-engine/publish-engine";
+import { getPublishAdapter } from "content-publish-engine/publish-engine";
 
 const adapter = getPublishAdapter("juejin");
-const authStatus = await adapter.checkAuth();
-const preflight = preflightPublishContent({ platform: "juejin", title, markdown });
-const idempotencyKey = buildPublishIdempotencyKey(scheduleId, "juejin", contentHash);
+const auth = await adapter.checkAuth();
+// Mock mode is the default and never writes to an external platform.
 ```
 
-### Custom Transport
+## Real publishing
 
-```typescript
-import { setDefaultTransport, type FormalPublishTransport } from "content-publish-engine/publish-engine";
+The default `BridgeTransport` calls an authorized local service:
 
-const myTransport: FormalPublishTransport = {
-  checkAuth: async (platform) => { ... },
-  publish: async (platform, payload) => { ... },
-  verify: async (platform, result) => { ... },
-};
-
-setDefaultTransport(myTransport);
+```dotenv
+DIRECT_PUBLISH_ENABLED=true
+WECHATSYNC_BRIDGE_URL=http://127.0.0.1:9528
+WECHATSYNC_BRIDGE_TOKEN=replace-with-a-local-secret
 ```
 
-### AI Provider
+The bridge must implement `POST /auth/check`, `POST /publish`, and `POST /publish/verify`. A custom transport is usually the simplest integration path; see [`examples/custom-transport.mjs`](examples/custom-transport.mjs) and [`docs/adapter-guide.md`](docs/adapter-guide.md).
 
-```typescript
-import { callAiProvider } from "content-publish-engine/ai-provider";
+## MCP server
 
-const result = await callAiProvider({
-  provider: "qwen",
-  systemPrompt: "You are a technical writer.",
-  userPrompt: "Write about...",
-});
-```
-
-### MCP Server
-
-The standalone MCP server provides 7 tools with direct SDK access (no HTTP proxy):
+From a source checkout:
 
 ```bash
 npm run mcp:start
 ```
 
-| Tool | Description |
-|------|-------------|
-| `platform_auth_probe` | Check platform adapter authentication status |
-| `publish_content_preflight` | Evaluate content against platform publishing rules |
-| `publish_job_create` | Create an idempotent publish job from a draft |
-| `publish_job_run` | Execute a publish job via the platform adapter |
-| `publish_job_get` | Read job status from the local job store |
-| `publish_job_verify` | Verify a submitted job and resolve its public URL |
-| `publish_liveness_check` | Check article liveness and advance lifecycle state |
+From a built or installed package:
 
-## Environment Variables
+```bash
+content-publish-engine-mcp
+```
 
-### AI Provider
+The server persists jobs and publish results to `.data/publish-jobs.json` by default. Override it with `PUBLISH_JOB_STORE_PATH`.
 
-| Variable | Description |
-|----------|-------------|
-| `DASHSCOPE_API_KEY` | Qwen API key |
-| `QWEN_MODEL` | Qwen model name |
-| `DEEPSEEK_API_KEY` | DeepSeek API key |
-| `DEEPSEEK_MODEL` | DeepSeek model name |
-| `DOUBAO_API_KEY` | Doubao API key |
-| `DOUBAO_MODEL` | Doubao model name |
+Available tools:
 
-### Publish Engine
+- `platform_auth_probe`
+- `publish_content_preflight`
+- `publish_job_create`
+- `publish_job_run`
+- `publish_job_get`
+- `publish_job_verify`
+- `publish_liveness_check`
+- `publish_verification_due`
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `DIRECT_PUBLISH_ENABLED` | Enable real publishing | `false` (mock) |
-| `WECHATSYNC_BRIDGE_URL` | Local bridge URL | `http://127.0.0.1:9528` |
-| `WECHATSYNC_BRIDGE_TOKEN` | Bridge auth token | — |
-| `DIRECT_PUBLISH_STABLE_AFTER_HOURS` | Stable window | `72` |
-| `DIRECT_PUBLISH_VERIFICATION_TIMEOUT_HOURS` | Verification timeout | `168` |
-| `PUBLISH_JOB_STORE_PATH` | MCP server job store path | `.data/publish-jobs.json` |
+## Content media protocol
+
+`content-media://media-asset-<uuid>` references can be rewritten to HTTPS URLs through `rewriteContentMediaSources`. The resolver is provided by the host application; the package does not assume a specific media backend.
+
+## Configuration
+
+Copy `.env.example` and supply only the providers and publishing mode you use. Never commit the resulting `.env` file. See [`docs/architecture.md`](docs/architecture.md) for component boundaries and durability behavior.
+
+## Known limitations
+
+- Platform adapters define validation and lifecycle behavior; real platform actions still require a bridge or custom transport.
+- No live platform credentials are exercised in CI.
+- File-backed job persistence is intended for a single local process or low-volume deployment, not distributed workers.
+- Provider output quality and platform policy compliance remain the operator's responsibility.
+
+## Contributing and security
+
+See [`CONTRIBUTING.md`](CONTRIBUTING.md) before opening a pull request. Report vulnerabilities according to [`SECURITY.md`](SECURITY.md), not through a public issue.
 
 ## License
 
-MIT
+[MIT](LICENSE)

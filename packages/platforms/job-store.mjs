@@ -110,6 +110,27 @@ export function createBrowserPublishJobStore(filePath, options = {}) {
       return publicJob(job, true);
     },
 
+    claimById(jobId, workerId) {
+      const state = readState(filePath);
+      const nowMs = Date.now();
+      releaseExpiredLocks(state, nowMs);
+      const job = state.jobs.find((candidate) => candidate.id === jobId);
+      if (!job || job.status !== "queued" || state.platformLocks[job.platform]) {
+        writeState(filePath, state);
+        return undefined;
+      }
+
+      const leaseExpiresAt = new Date(nowMs + leaseMs).toISOString();
+      job.status = "running";
+      job.leaseOwner = workerId;
+      job.leaseExpiresAt = leaseExpiresAt;
+      job.startedAt ||= new Date(nowMs).toISOString();
+      job.updatedAt = new Date(nowMs).toISOString();
+      state.platformLocks[job.platform] = { jobId: job.id, workerId, leaseExpiresAt };
+      writeState(filePath, state);
+      return publicJob(job, true);
+    },
+
     heartbeat(jobId, workerId) {
       const state = readState(filePath);
       const job = state.jobs.find((candidate) => candidate.id === jobId);
@@ -142,9 +163,19 @@ export function createBrowserPublishJobStore(filePath, options = {}) {
       return publicJob(job);
     },
 
-    getById(id) {
+    updateResult(jobId, result) {
+      const state = readState(filePath);
+      const job = state.jobs.find((candidate) => candidate.id === jobId);
+      if (!job) return undefined;
+      job.result = result;
+      job.updatedAt = nowIso();
+      writeState(filePath, state);
+      return publicJob(job);
+    },
+
+    getById(id, includePayload = false) {
       const job = readState(filePath).jobs.find((candidate) => candidate.id === id);
-      return job ? publicJob(job) : undefined;
+      return job ? publicJob(job, includePayload) : undefined;
     },
 
     getByIdempotencyKey(idempotencyKey) {

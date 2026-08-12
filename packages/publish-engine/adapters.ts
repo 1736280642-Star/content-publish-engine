@@ -1,6 +1,6 @@
-import { getDefaultTransport, type FormalPublishTransport } from "./transport";
-import type { DirectPublishPlatformKey, PlatformPublishPayload } from "./types";
-import type { AuthStatus, PublishAdapter, PublishResult, ValidationResult, VerifyResult } from "./adapter-types";
+import { getDefaultTransport, type FormalPublishTransport } from "./transport.js";
+import type { DirectPublishPlatformKey, PlatformPublishPayload } from "./types.js";
+import type { AuthStatus, PublishAdapter, PublishResult, ValidationResult, VerifyResult } from "./adapter-types.js";
 
 const directPublishPlatforms: DirectPublishPlatformKey[] = ["wechat", "juejin", "csdn", "zhihu"];
 

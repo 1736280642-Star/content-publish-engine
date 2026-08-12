@@ -1,5 +1,5 @@
-import type { ContentDraftArtifact, DraftSection, FreeContentExpressionTypeVersion } from "./contracts";
-import { sanitizePublishMarkdown } from "./compiler";
+import type { ContentDraftArtifact, DraftSection, FreeContentExpressionTypeVersion } from "./contracts.js";
+import { sanitizePublishMarkdown } from "./compiler.js";
 
 const forbiddenClaims = ["行业第一", "革命性", "颠覆性", "完全替代人", "100%", "绝对安全"];
 

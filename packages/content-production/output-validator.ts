@@ -5,7 +5,7 @@ import type {
   ProductionSiblingDraft,
   ProductionValidationIssue,
   ProductionValidationResult
-} from "./contracts";
+} from "./contracts.js";
 
 export interface ValidateProductionOutputInput {
   contract: ProductionContractSnapshot;

@@ -8,7 +8,7 @@ import {
   type PromotionProfileVersion,
   type ResolvedCtaVariant,
   uniqueSorted
-} from "./contracts";
+} from "./contracts.js";
 
 interface PromotionCandidate {
   profile: PromotionProfileVersion;

@@ -1,5 +1,5 @@
-import type { DirectPublishPlatformKey, PlatformPublishPayload, PublishAttemptStatus, PublishFailureCode } from "./types";
-import type { AuthStatus, PublishResult, VerifyResult } from "./adapter-types";
+import type { DirectPublishPlatformKey, PlatformPublishPayload, PublishAttemptStatus, PublishFailureCode } from "./types.js";
+import type { AuthStatus, PublishResult, VerifyResult } from "./adapter-types.js";
 
 /**
  * Transport interface for the formal publish bridge.

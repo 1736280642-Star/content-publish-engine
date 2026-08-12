@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type { ExpressionPlan, FreeContentExpressionTypeVersion, VisualMaterialSuggestion } from "./contracts";
+import type { ExpressionPlan, FreeContentExpressionTypeVersion, VisualMaterialSuggestion } from "./contracts.js";
 
 const positioning: Record<FreeContentExpressionTypeVersion["presetKey"], { angle: string; positioning: string; pain: string; claim: string }> = {
   product_release: { angle: "真实工作流中的产品价值", positioning: "从业务痛点进入产品定位与流程变化", pain: "重复动作消耗专业人员时间且难以稳定交付", claim: "AI 接手重复动作后，人可以把判断力放回关键决策" },

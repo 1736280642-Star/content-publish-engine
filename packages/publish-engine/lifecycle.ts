@@ -1,5 +1,5 @@
-import type { VerifyResult } from "./adapter-types";
-import type { PublishAttemptStatus, PublishSchedule } from "./types";
+import type { VerifyResult } from "./adapter-types.js";
+import type { PublishAttemptStatus, PublishSchedule } from "./types.js";
 
 const MINUTE_MS = 60_000;
 const HOUR_MS = 60 * MINUTE_MS;

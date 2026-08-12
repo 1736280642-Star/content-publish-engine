@@ -1,18 +1,17 @@
-const WORKBENCH_MEDIA_PATTERN = /workbench-media:\/\/(media-asset-[0-9a-f-]{36})/gi;
+const CONTENT_MEDIA_PATTERN = /content-media:\/\/(media-asset-[0-9a-f-]{36})/gi;
 
-export function collectWorkbenchMediaIds(html) {
-  return Array.from(new Set(Array.from(String(html || "").matchAll(WORKBENCH_MEDIA_PATTERN), (match) => match[1])));
+export function collectContentMediaIds(html) {
+  return Array.from(new Set(Array.from(String(html || "").matchAll(CONTENT_MEDIA_PATTERN), (match) => match[1])));
 }
 
-export async function rewriteWorkbenchMediaSources(html, resolveUrl) {
+export async function rewriteContentMediaSources(html, resolveUrl) {
   let output = String(html || "");
-  const ids = collectWorkbenchMediaIds(output);
+  const ids = collectContentMediaIds(output);
   for (const id of ids) {
     const url = String(await resolveUrl(id) || "").trim();
-    if (!/^https:\/\//i.test(url)) throw new Error(`素材 ${id} 未返回有效的 HTTPS 正文图片地址。`);
-    output = output.split(`workbench-media://${id}`).join(url);
+    if (!/^https:\/\//i.test(url)) throw new Error(`Asset ${id} did not resolve to a valid HTTPS content image URL.`);
+    output = output.split(`content-media://${id}`).join(url);
   }
-  if (/workbench-media:\/\//i.test(output)) throw new Error("公众号正文仍包含未解析的工作台素材引用。");
+  if (/content-media:\/\//i.test(output)) throw new Error("Content still contains unresolved media references.");
   return output;
 }
-

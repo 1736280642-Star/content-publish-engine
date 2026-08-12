@@ -1,4 +1,4 @@
-import type { DirectPublishPlatformKey, PlatformPublishPayload, PublishAttemptStatus, PublishFailureCode } from "./types";
+import type { DirectPublishPlatformKey, PlatformPublishPayload, PublishAttemptStatus, PublishFailureCode } from "./types.js";
 
 export interface AuthStatus {
   ok: boolean;

@@ -1,18 +1,16 @@
+#!/usr/bin/env node
+
 import { McpServer } from "@modelcontextprotocol/server";
 import { serveStdio } from "@modelcontextprotocol/server/stdio";
 import * as z from "zod/v4";
 import { randomUUID } from "node:crypto";
 import { join } from "node:path";
-import { getPublishAdapter } from "../packages/publish-engine/adapters.ts";
-import { preflightPublishContent, rewriteJuejinContentOnce } from "../packages/publish-engine/content-preflight.ts";
-import { buildPublishIdempotencyKey, hashDirectPublishContent } from "../packages/publish-engine/idempotency.ts";
-import { resolvePublishVerificationLifecycle, isPublishVerificationDue } from "../packages/publish-engine/lifecycle.ts";
+import { pathToFileURL } from "node:url";
+import { getPublishAdapter } from "../packages/publish-engine/adapters.js";
+import { preflightPublishContent, rewriteJuejinContentOnce } from "../packages/publish-engine/content-preflight.js";
+import { buildPublishIdempotencyKey, hashDirectPublishContent } from "../packages/publish-engine/idempotency.js";
+import { resolvePublishVerificationLifecycle, isPublishVerificationDue } from "../packages/publish-engine/lifecycle.js";
 import { createBrowserPublishJobStore } from "../packages/platforms/job-store.mjs";
-
-const jobStorePath = process.env.PUBLISH_JOB_STORE_PATH || join(process.cwd(), ".data", "publish-jobs.json");
-const jobStore = createBrowserPublishJobStore(jobStorePath, { leaseMs: 300_000 });
-
-const resultCache = new Map();
 
 function toolResult(value) {
   return {
@@ -46,9 +44,11 @@ function buildPayload(input) {
   };
 }
 
-export function createPublishMcpServer() {
+export function createPublishMcpServer(options = {}) {
+  const jobStorePath = options.jobStorePath || process.env.PUBLISH_JOB_STORE_PATH || join(process.cwd(), ".data", "publish-jobs.json");
+  const jobStore = options.jobStore || createBrowserPublishJobStore(jobStorePath, { leaseMs: options.leaseMs || 300_000 });
   const server = new McpServer(
-    { name: "content-publish-engine", version: "1.0.0" },
+    { name: "content-publish-engine", version: "0.1.0" },
     {
       instructions:
         "Direct-SDK publish engine for multi-platform content distribution. " +
@@ -148,14 +148,42 @@ export function createPublishMcpServer() {
       if (!job) {
         return { ok: false, error: `Job ${jobId} not found.` };
       }
-      const cached = resultCache.get(jobId);
-      if (cached) {
-        return { ok: cached.ok, jobId, platform: job.platform, status: cached.status, message: "Job already executed.", result: cached };
+      if (job.result) {
+        return { ok: job.result.ok, jobId, platform: job.platform, status: job.result.status, message: "Job already executed.", result: job.result };
       }
-      const adapter = getPublishAdapter(job.platform);
-      const payload = job.payload || {};
-      const result = await adapter.publish(payload);
-      resultCache.set(jobId, { ...result, platform: job.platform });
+      const workerId = `mcp-${process.pid}-${randomUUID()}`;
+      const claimed = jobStore.claimById(jobId, workerId);
+      if (!claimed) {
+        const current = jobStore.getById(jobId);
+        return {
+          ok: false,
+          jobId,
+          platform: job.platform,
+          status: current?.status || "queued",
+          error: "Job is already running or its platform is busy. Retry after the active lease expires."
+        };
+      }
+      const adapter = getPublishAdapter(claimed.platform);
+      const payload = claimed.payload;
+      let result;
+      try {
+        result = await adapter.publish(payload);
+      } catch (error) {
+        const failure = {
+          ok: false,
+          status: "failed",
+          mode: "real",
+          publishStatus: "failed",
+          idempotencyKey: payload.idempotencyKey,
+          failureCode: "adapter_failed",
+          failureReason: error instanceof Error ? error.message : String(error),
+          nextAction: "Inspect the external platform before creating or retrying a publish job."
+        };
+        jobStore.complete(jobId, workerId, { ...failure, platform: claimed.platform });
+        throw error;
+      }
+      const persistedResult = { ...result, platform: claimed.platform };
+      jobStore.complete(jobId, workerId, persistedResult);
       return {
         ok: result.ok,
         jobId,
@@ -184,11 +212,10 @@ export function createPublishMcpServer() {
       if (!job) {
         return { ok: false, error: `Job ${jobId} not found.` };
       }
-      const cached = resultCache.get(jobId);
       return {
         ok: true,
         job,
-        lastResult: cached || null
+        lastResult: job.result || null
       };
     }
   );
@@ -202,13 +229,13 @@ export function createPublishMcpServer() {
       if (!job) {
         return { ok: false, error: `Job ${jobId} not found.` };
       }
-      const cached = resultCache.get(jobId);
-      if (!cached) {
+      const persistedResult = job.result;
+      if (!persistedResult) {
         return { ok: false, error: `No publish result found for job ${jobId}. Run publish_job_run first.` };
       }
       const adapter = getPublishAdapter(job.platform);
-      const verified = await adapter.verify(cached);
-      resultCache.set(jobId, { ...cached, ...verified, platform: job.platform });
+      const verified = await adapter.verify(persistedResult);
+      jobStore.updateResult(jobId, { ...persistedResult, ...verified, platform: job.platform });
       return {
         ok: verified.ok,
         jobId,
@@ -245,16 +272,17 @@ export function createPublishMcpServer() {
       if (!job) {
         return { ok: false, error: `Job ${jobId} not found.` };
       }
-      const cached = resultCache.get(jobId);
-      if (!cached) {
+      const persistedResult = job.result;
+      if (!persistedResult) {
         return { ok: false, error: `No publish result found for job ${jobId}. Run publish_job_run first.` };
       }
       const adapter = getPublishAdapter(job.platform);
-      const verified = await adapter.verify(cached);
+      const verified = await adapter.verify(persistedResult);
+      jobStore.updateResult(jobId, { ...persistedResult, ...verified, platform: job.platform });
       const baseSchedule = {
         id: jobId,
         platform: job.platform,
-        status: scheduleOverrides?.status || cached.status,
+        status: scheduleOverrides?.status || persistedResult.status,
         scheduledAt: job.payload?.scheduledAt || new Date().toISOString(),
         draftId: job.payload?.sourceDraftId || jobId,
         contentHash: job.payload?.contentHash || "",
@@ -303,5 +331,8 @@ export function createPublishMcpServer() {
   return server;
 }
 
-void serveStdio(createPublishMcpServer);
-console.error("content-publish-engine MCP server running on stdio.");
+const invokedPath = process.argv[1] ? pathToFileURL(process.argv[1]).href : undefined;
+if (invokedPath === import.meta.url) {
+  void serveStdio(createPublishMcpServer);
+  console.error("content-publish-engine MCP server running on stdio.");
+}

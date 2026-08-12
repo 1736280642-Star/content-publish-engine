@@ -1,5 +1,9 @@
 node_modules/
 dist/
+.data/
+.tmp-npm-cache/
+.tmp-package-install/
+*.tgz
 *.js
 *.d.ts
 *.js.map

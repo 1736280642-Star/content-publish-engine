@@ -11,8 +11,8 @@ import {
   type ProductionContractSnapshot,
   type PromotionProfileVersion,
   uniqueSorted
-} from "./contracts";
-import { resolvePromotionPlan } from "./promotion-resolver";
+} from "./contracts.js";
+import { resolvePromotionPlan } from "./promotion-resolver.js";
 
 export interface CompileProductionContractInput {
   task: ContentTaskSnapshot;

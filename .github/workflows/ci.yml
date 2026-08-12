@@ -7,7 +7,7 @@ on:
     branches: [main, master]
 
 jobs:
-  typecheck-and-test:
+  check:
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -25,8 +25,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Typecheck
-        run: npm run typecheck
+      - name: Verify source, tests, build, and package entry points
+        run: npm run check
 
-      - name: Test
-        run: npm test
+      - name: Inspect publish archive
+        run: npm pack --dry-run
+
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=high

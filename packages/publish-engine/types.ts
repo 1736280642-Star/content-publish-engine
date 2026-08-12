@@ -1,5 +1,5 @@
 /**
- * Publish engine types — extracted from the original workbench types.
+ * Public contracts shared by publish adapters, transports, and lifecycle services.
  * These types are self-contained and do not reference other business types.
  */
 

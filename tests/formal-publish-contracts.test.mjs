@@ -60,7 +60,7 @@ test("wechat pending status never resubmits", async () => {
 });
 
 test("local ledger blocks duplicate publish execution", () => {
-  const directory = mkdtempSync(join(tmpdir(), "joto-publish-ledger-"));
+  const directory = mkdtempSync(join(tmpdir(), "content-publish-ledger-"));
   const ledger = createPublishIdempotencyLedger(join(directory, "ledger.json"));
   const first = ledger.begin("key-1", { scheduleId: "schedule-1" });
   const second = ledger.begin("key-1", { scheduleId: "schedule-1" });
@@ -278,7 +278,7 @@ test("primary platform failure clears a stale URL previously written by another 
 });
 
 test("browser publish jobs are idempotent and serialized per platform", () => {
-  const directory = mkdtempSync(join(tmpdir(), "joto-browser-publish-"));
+  const directory = mkdtempSync(join(tmpdir(), "content-browser-publish-"));
   const store = createBrowserPublishJobStore(join(directory, "jobs.json"), { leaseMs: 30_000 });
   const first = store.enqueue({ platform: "juejin", idempotencyKey: "key-1", payload: { title: "One" } });
   const duplicate = store.enqueue({ platform: "juejin", idempotencyKey: "key-1", payload: { title: "Duplicate" } });
@@ -295,6 +295,39 @@ test("browser publish jobs are idempotent and serialized per platform", () => {
   const completed = store.complete(claimed.id, "worker-a", { ok: true, status: "published_pending_url" });
   assert.equal(completed.status, "completed");
   assert.equal(store.claim("worker-b", ["juejin"]).id, second.job.id);
+});
+
+test("MCP publish jobs preserve payloads and results across store restarts", () => {
+  const directory = mkdtempSync(join(tmpdir(), "content-publish-engine-mcp-"));
+  const filePath = join(directory, "jobs.json");
+  const payload = {
+    scheduleId: "schedule-persisted",
+    contentHash: "hash-persisted",
+    idempotencyKey: "idempotency-persisted",
+    title: "Persisted publish job",
+    markdown: "A sufficiently long article body used to verify that persisted MCP jobs retain their executable payload across process restarts.",
+    scheduledAt: new Date().toISOString(),
+    sourceDraftId: "draft-persisted"
+  };
+
+  const firstStore = createBrowserPublishJobStore(filePath);
+  const enqueued = firstStore.enqueue({ platform: "wechat", idempotencyKey: payload.idempotencyKey, payload });
+  const workerId = "mcp-test-worker";
+  const claimed = firstStore.claimById(enqueued.job.id, workerId);
+  assert.deepEqual(claimed.payload, payload);
+  firstStore.complete(enqueued.job.id, workerId, {
+    ok: true,
+    status: "published_pending_url",
+    idempotencyKey: payload.idempotencyKey,
+    platform: "wechat"
+  });
+
+  const restartedStore = createBrowserPublishJobStore(filePath);
+  const restored = restartedStore.getById(enqueued.job.id);
+  assert.equal(restored.status, "completed");
+  assert.equal(restored.result.idempotencyKey, payload.idempotencyKey);
+  assert.equal(restored.payload, undefined);
+  assert.deepEqual(restartedStore.getById(enqueued.job.id, true).payload, payload);
 });
 
 test("juejin preflight blocks promotional shallow content and allows one immutable rewrite", () => {

@@ -1,4 +1,4 @@
-import { getMissingEnv } from "./config-check";
+import { getMissingEnv } from "./config-check.js";
 
 export type AiProviderKey = "qwen" | "deepseek" | "doubao";
 

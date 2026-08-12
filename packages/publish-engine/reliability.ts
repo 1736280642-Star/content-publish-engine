@@ -1,4 +1,4 @@
-import type { DirectPublishPlatformKey, PublishAttempt, PublishSchedule } from "./types";
+import type { DirectPublishPlatformKey, PublishAttempt, PublishSchedule } from "./types.js";
 
 export interface PublishReliabilityMetrics {
   platform: DirectPublishPlatformKey;

@@ -4,8 +4,8 @@ import type {
   ProductionSiblingDraft,
   ProductionValidationIssue,
   ProductionValidationResult
-} from "./contracts";
-import { validateProductionOutput } from "./output-validator";
+} from "./contracts.js";
+import { validateProductionOutput } from "./output-validator.js";
 
 export interface ContentProductionModel {
   generate(contract: ProductionContractSnapshot): Promise<ProductionProviderOutput>;

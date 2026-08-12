@@ -1,4 +1,4 @@
-import type { PublishSchedule } from "./types";
+import type { PublishSchedule } from "./types.js";
 
 function observedVerificationIdentity(schedule: PublishSchedule): string {
   if (schedule.platformArticleId) return `${schedule.platform}:article:${schedule.platformArticleId}`;

@@ -1,4 +1,4 @@
-import type { DirectPublishPlatformKey } from "./types";
+import type { DirectPublishPlatformKey } from "./types.js";
 
 export const PUBLISH_PREFLIGHT_RULE_VERSION = "2026-07-31.1";
 

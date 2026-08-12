@@ -1,4 +1,4 @@
-import type { DirectPublishPlatformKey, PublishRecord, PublishSchedule } from "./types";
+import type { DirectPublishPlatformKey, PublishRecord, PublishSchedule } from "./types.js";
 
 function primaryPlatformForRecord(record: PublishRecord): DirectPublishPlatformKey {
   if (record.channel === "zhihu_toutiao_general") return "zhihu";
