@@ -6,7 +6,7 @@ import test from "node:test";
 import { buildPublishIdempotencyKey, hashDirectPublishContent } from "../packages/publish-engine/idempotency.ts";
 import { getPublishAdapter } from "../packages/publish-engine/adapters.ts";
 import { isPublishVerificationDue, resolvePublishVerificationLifecycle } from "../packages/publish-engine/lifecycle.ts";
-import { preflightPublishContent, rewriteJuejinContentOnce } from "../packages/publish-engine/content-preflight.ts";
+import { getOfficialRuleCoverage, preflightPublishContent } from "../packages/publish-engine/content-preflight.ts";
 import { buildPublishReliabilityMetrics, evaluatePublishRolloutReadiness } from "../packages/publish-engine/reliability.ts";
 import { mergePublishRecordPlatformResult } from "../packages/publish-engine/platform-results.ts";
 import { deduplicateObservedPublishVerifications } from "../packages/publish-engine/verification-queue.ts";
@@ -124,7 +124,7 @@ test("real adapter sends the idempotent payload through the authenticated local 
   }
 });
 
-test("CSDN requires tags but keeps categories optional", async () => {
+test("adapters validate payload shape without inventing platform metadata requirements", async () => {
   const previousEnabled = process.env.DIRECT_PUBLISH_ENABLED;
   const previousMock = process.env.DIRECT_PUBLISH_MOCK;
   process.env.DIRECT_PUBLISH_ENABLED = "true";
@@ -142,7 +142,8 @@ test("CSDN requires tags but keeps categories optional", async () => {
       tagIds: ["AI"]
     };
     assert.equal((await getPublishAdapter("csdn").validatePayload(payload)).ok, true);
-    assert.equal((await getPublishAdapter("csdn").validatePayload({ ...payload, tagIds: [] })).ok, false);
+    assert.equal((await getPublishAdapter("csdn").validatePayload({ ...payload, tagIds: [] })).ok, true);
+    assert.equal((await getPublishAdapter("juejin").validatePayload({ ...payload, tagIds: [], categoryId: undefined })).ok, true);
   } finally {
     if (previousEnabled === undefined) delete process.env.DIRECT_PUBLISH_ENABLED;
     else process.env.DIRECT_PUBLISH_ENABLED = previousEnabled;
@@ -330,18 +331,27 @@ test("MCP publish jobs preserve payloads and results across store restarts", () 
   assert.deepEqual(restartedStore.getById(enqueued.job.id, true).payload, payload);
 });
 
-test("juejin preflight blocks promotional shallow content and allows one immutable rewrite", () => {
-  const original = "扫码免费领取资料 https://one.example https://two.example https://three.example";
-  const blocked = preflightPublishContent({ platform: "juejin", title: "重磅！！", markdown: original });
-  assert.equal(blocked.passed, false);
-  assert.ok(blocked.blockers.some((item) => item.code === "juejin_promotion_risk"));
-  const rewritten = rewriteJuejinContentOnce({
-    title: "重磅！！",
-    markdown: `${original}\n\n${"实现细节与验证内容。".repeat(100)}`
-  });
-  assert.equal(original.includes("扫码"), true);
-  assert.equal(rewritten.markdown.includes("扫码"), false);
-  assert.match(rewritten.markdown, /## 验证步骤/);
+test("preflight does not impose editorial preferences or mutate content", () => {
+  const original = "立即购买 https://one.example https://two.example https://three.example";
+  const result = preflightPublishContent({ platform: "juejin", title: "短标题", markdown: original });
+  assert.equal(result.passed, true);
+  assert.deepEqual(result.blockers, []);
+  assert.deepEqual(result.warnings, []);
+  assert.equal(result.officialRuleCoverage.status, "not_verified");
+  assert.equal(original, "立即购买 https://one.example https://two.example https://three.example");
+});
+
+test("preflight separates payload validity from sourced official platform guidance", () => {
+  const invalid = preflightPublishContent({ platform: "wechat", title: " ", markdown: " " });
+  assert.equal(invalid.passed, false);
+  assert.ok(invalid.blockers.every((item) => item.scope === "payload"));
+
+  const csdn = preflightPublishContent({ platform: "csdn", title: "Title", markdown: "Body" });
+  assert.equal(csdn.passed, true);
+  assert.equal(csdn.officialRuleCoverage.status, "partial");
+  assert.equal(csdn.officialRuleCoverage.sources.length, 1);
+  assert.ok(csdn.warnings.some((item) => item.code === "csdn_article_tags_unset" && item.sourceUrl));
+  assert.deepEqual(getOfficialRuleCoverage("csdn"), csdn.officialRuleCoverage);
 });
 
 test("reliability metrics distinguish public observation, stability, and removal", () => {

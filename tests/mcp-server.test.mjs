@@ -70,9 +70,11 @@ test("MCP create, run, restart, get, and verify lifecycle is durable", async () 
   const created = await firstClient.callTool("publish_job_create", {
     platform: "wechat",
     title: "Durable MCP publish job",
-    markdown: "This article body is deliberately longer than eighty characters so the publish preflight accepts it and the mock adapter can persist a result safely."
+    markdown: "Short body."
   });
   assert.equal(created.ok, true);
+  assert.equal(created.preflight.passed, true);
+  assert.equal(created.preflight.officialRuleCoverage.status, "not_verified");
 
   const run = await firstClient.callTool("publish_job_run", { jobId: created.jobId });
   assert.equal(run.ok, true);

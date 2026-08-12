@@ -9,7 +9,7 @@ Evidence and rules
 Content production contract -> model generation -> deterministic validation
                                                      |
                                                      v
-Publish preflight -> adapter -> transport -> authorized bridge/platform
+Payload + sourced platform preflight -> adapter -> transport -> authorized bridge/platform
                          |                       |
                          v                       v
                  persisted job/result <- verify and liveness lifecycle
@@ -33,3 +33,5 @@ The JSON store uses atomic rename writes and platform-level leases. It is approp
 ## Trust boundaries
 
 AI output is untrusted and must pass deterministic validation. External transport responses are normalized into a finite status set. Credentials stay in the host environment and are never returned through MCP tools.
+
+Publish preflight is not an editorial review system. It does not infer preferred article length, promotional tone, technical depth, or link count. Generic checks cover only payload completeness. Platform-specific checks must identify an official source, and the returned coverage status makes unsupported or unverified rule sets explicit. The live platform response remains authoritative when public documentation is incomplete or changes.

@@ -94,6 +94,8 @@ Available tools:
 - `publish_liveness_check`
 - `publish_verification_due`
 
+`publish_content_preflight` does not score writing quality or impose default limits on length, promotional wording, technical depth, or external links. It checks only required payload fields and platform-specific rules backed by identified official sources. Every result includes an `officialRuleCoverage` status so callers can distinguish verified coverage from missing public documentation. See [`docs/official-platform-rules.md`](docs/official-platform-rules.md).
+
 ## Content media protocol
 
 `content-media://media-asset-<uuid>` references can be rewritten to HTTPS URLs through `rewriteContentMediaSources`. The resolver is provided by the host application; the package does not assume a specific media backend.
@@ -104,7 +106,8 @@ Copy `.env.example` and supply only the providers and publishing mode you use. N
 
 ## Known limitations
 
-- Platform adapters define validation and lifecycle behavior; real platform actions still require a bridge or custom transport.
+- Platform adapters define payload validation and lifecycle behavior; real platform actions and final policy enforcement still require a bridge or custom transport.
+- Official rule coverage is intentionally partial where a platform does not publish a stable, machine-verifiable publishing contract.
 - No live platform credentials are exercised in CI.
 - File-backed job persistence is intended for a single local process or low-volume deployment, not distributed workers.
 - Provider output quality and platform policy compliance remain the operator's responsibility.

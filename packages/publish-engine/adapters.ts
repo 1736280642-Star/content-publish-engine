@@ -17,8 +17,8 @@ function validateBasePayload(payload: PlatformPublishPayload): ValidationResult 
   if (!payload.title.trim()) {
     return { ok: false, message: "标题不能为空。", nextAction: "请先回到终稿或矩阵项补齐标题。", failureCode: "payload_invalid" };
   }
-  if (!payload.markdown.trim() || payload.markdown.trim().length < 80) {
-    return { ok: false, message: "正文过短，不能进入正式发布。", nextAction: "请先生成或补齐终稿正文，再重新创建发布排程。", failureCode: "payload_invalid" };
+  if (!payload.markdown.trim()) {
+    return { ok: false, message: "正文不能为空。", nextAction: "请先补齐终稿正文，再重新创建发布排程。", failureCode: "payload_invalid" };
   }
   if (Number.isNaN(new Date(payload.scheduledAt).getTime())) {
     return { ok: false, message: "定时发布时间不是有效时间。", nextAction: "请重新选择 scheduledAt。", failureCode: "payload_invalid" };
@@ -122,28 +122,10 @@ class WechatDirectPublishAdapter extends BaseDirectPublishAdapter {
 
 class JuejinDirectPublishAdapter extends BaseDirectPublishAdapter {
   platform = "juejin" as const;
-
-  async validatePayload(payload: PlatformPublishPayload): Promise<ValidationResult> {
-    const base = await super.validatePayload(payload);
-    if (!base.ok) return base;
-    if (getMode() === "real" && (!payload.categoryId || !payload.tagIds?.length)) {
-      return { ok: false, message: "掘金正式发布缺少分类或标签。", nextAction: "请补齐 JUEJIN_CATEGORY_ID 和 JUEJIN_TAG_IDS 后重新创建排程。", failureCode: "payload_invalid" };
-    }
-    return base;
-  }
 }
 
 class CsdnDirectPublishAdapter extends BaseDirectPublishAdapter {
   platform = "csdn" as const;
-
-  async validatePayload(payload: PlatformPublishPayload): Promise<ValidationResult> {
-    const base = await super.validatePayload(payload);
-    if (!base.ok) return base;
-    if (getMode() === "real" && !payload.tagIds?.length) {
-      return { ok: false, message: "CSDN 正式发布缺少标签。", nextAction: "请补齐 CSDN_TAGS 后重新创建排程。", failureCode: "payload_invalid" };
-    }
-    return base;
-  }
 }
 
 class ZhihuDirectPublishAdapter extends BaseDirectPublishAdapter {

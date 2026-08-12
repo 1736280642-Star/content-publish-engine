@@ -7,7 +7,7 @@ import { randomUUID } from "node:crypto";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { getPublishAdapter } from "../packages/publish-engine/adapters.js";
-import { preflightPublishContent, rewriteJuejinContentOnce } from "../packages/publish-engine/content-preflight.js";
+import { preflightPublishContent } from "../packages/publish-engine/content-preflight.js";
 import { buildPublishIdempotencyKey, hashDirectPublishContent } from "../packages/publish-engine/idempotency.js";
 import { resolvePublishVerificationLifecycle, isPublishVerificationDue } from "../packages/publish-engine/lifecycle.js";
 import { createBrowserPublishJobStore } from "../packages/platforms/job-store.mjs";
@@ -78,28 +78,24 @@ export function createPublishMcpServer(options = {}) {
 
   register(
     "publish_content_preflight",
-    "Evaluate draft content against versioned platform publishing rules before submission.",
+    "Check publish-payload completeness and verified official platform rules without applying editorial preferences.",
     z.object({
       platform: z.enum(["wechat", "juejin", "csdn", "zhihu"]),
       title: z.string(),
       markdown: z.string(),
-      autoRewrite: z.boolean().optional()
+      categoryId: z.string().optional(),
+      tagIds: z.array(z.string()).optional(),
+      coverMediaId: z.string().optional()
     }),
     async (input) => {
       const result = preflightPublishContent({
         platform: input.platform,
         title: input.title,
-        markdown: input.markdown
+        markdown: input.markdown,
+        categoryId: input.categoryId,
+        tagIds: input.tagIds,
+        coverMediaId: input.coverMediaId
       });
-      if (!result.passed && input.autoRewrite && input.platform === "juejin") {
-        const rewritten = rewriteJuejinContentOnce({ title: input.title, markdown: input.markdown });
-        const reChecked = preflightPublishContent({
-          platform: input.platform,
-          title: input.title,
-          markdown: rewritten.markdown
-        });
-        return { ...reChecked, rewriteApplied: true, rewrittenMarkdown: rewritten.markdown };
-      }
       return result;
     }
   );
@@ -119,6 +115,17 @@ export function createPublishMcpServer(options = {}) {
     }),
     async (input) => {
       const payload = buildPayload(input);
+      const preflight = preflightPublishContent({
+        platform: input.platform,
+        title: input.title,
+        markdown: input.markdown,
+        categoryId: input.categoryId,
+        tagIds: input.tagIds,
+        coverMediaId: input.coverMediaId
+      });
+      if (!preflight.passed) {
+        return { ok: false, preflight, nextAction: "Resolve the publish-payload blockers before creating a job." };
+      }
       const validation = await getPublishAdapter(input.platform).validatePayload(payload);
       if (!validation.ok) {
         return { ok: false, validation, nextAction: validation.nextAction };
@@ -133,6 +140,7 @@ export function createPublishMcpServer(options = {}) {
         jobId: enqueued.job.id,
         idempotencyKey: payload.idempotencyKey,
         alreadyExists: !enqueued.created,
+        preflight,
         validation,
         nextAction: enqueued.created ? "Call publish_job_run to execute." : "Job already exists; call publish_job_get to inspect."
       };
