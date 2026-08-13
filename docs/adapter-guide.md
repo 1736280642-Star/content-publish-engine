@@ -21,3 +21,27 @@ interface FormalPublishTransport {
 - Do not expose cookies, tokens, DOM selectors, or raw private provider responses.
 
 Install the transport once with `setDefaultTransport`, or inject it into `getPublishAdapter(platform, transport)` for isolated usage and tests.
+
+## Registering a platform plugin
+
+Use a plugin when the platform has its own adapter or capability profile:
+
+```ts
+import { registerPlatform } from "content-publish-engine/publish-engine";
+
+registerPlatform({
+  key: "example",
+  displayName: "Example Platform",
+  adapter,
+  capabilities: {
+    directPublish: true,
+    scheduledPublish: false,
+    publicUrlLookup: true,
+    livenessCheck: true,
+    coverUpload: false,
+    inlineImageUpload: false
+  }
+});
+```
+
+Capability flags describe the executor itself. Engine-side due scheduling does not imply that a platform supports native scheduled publication, and accepting an existing platform media ID does not imply that the executor can upload raw assets.

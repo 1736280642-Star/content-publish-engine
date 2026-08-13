@@ -1,37 +1,38 @@
 # Architecture
 
-The project separates deterministic decision logic from external side effects.
+The engine begins with a completed article and ends only after platform publication and liveness verification.
 
 ```text
-Evidence and rules
+MCP / HTTP / SDK
        |
-       v
-Content production contract -> model generation -> deterministic validation
-                                                     |
-                                                     v
-Payload + sourced platform preflight -> adapter -> transport -> authorized bridge/platform
-                         |                       |
-                         v                       v
-                 persisted job/result <- verify and liveness lifecycle
+PublishOrchestrator -- events/audit/telemetry
+       |
+PublishRepository -- claims -- distributed lock contract
+       |
+PlatformRegistry -> adapter -> bridge/direct executor -> platform
+       |                                      |
+       +---- scheduler/worker <- verification-+
 ```
 
-## Package boundaries
+## Boundaries
 
-- `content-production`: immutable contracts, promotion resolution, generation orchestration, and validation.
-- `free-production`: lightweight planning, risk gates, presentation, and file persistence.
-- `publish-engine`: adapters, transport interface, idempotency, lifecycle, and reliability metrics.
-- `platforms`: protocol helpers and file-backed job/ledger primitives.
-- `ai-provider`: OpenAI-compatible provider calls and configuration checks.
-- `servers`: MCP-facing orchestration. It must not contain credentials or platform automation details.
+- `publish-engine`: contracts, repository interfaces, registry, orchestrator, lifecycle, rules, events, assets, and metrics.
+- `platforms`: platform formatting, official API executors, selector bundles, and authorization helpers.
+- `servers`: MCP, HTTP, and local bridge entry points. All call the same orchestrator or executor contracts.
+- `workers`: continuous due-publication and liveness processing.
 
-## Durability
+The engine has no content-generation, product, campaign, planning-cycle, or editorial-workflow concepts.
 
-MCP jobs persist their executable payload, lease state, terminal state, and latest publish/verification result. `publish_job_run` claims a job before executing and persists the result before returning. A restarted server can inspect and verify a completed job without republishing it.
+## Reliability invariants
 
-The JSON store uses atomic rename writes and platform-level leases. It is appropriate for one local MCP server. Use a transactional database and distributed lock when multiple processes must execute jobs.
+- One immutable content hash and idempotency key per job.
+- An ambiguous external action is verified, never blindly repeated.
+- Verification is read-only.
+- Platform writes are serialized by named leases.
+- Public discovery is provisional until later checks.
+- Survival milestones and stable windows are persisted in the job.
+- Repeated failure after a public observation can mark an article removed.
 
-## Trust boundaries
+## Deployment
 
-AI output is untrusted and must pass deterministic validation. External transport responses are normalized into a finite status set. Credentials stay in the host environment and are never returned through MCP tools.
-
-Publish preflight is not an editorial review system. It does not infer preferred article length, promotional tone, technical depth, or link count. Generic checks cover only payload completeness. Platform-specific checks must identify an official source, and the returned coverage status makes unsupported or unverified rule sets explicit. The live platform response remains authoritative when public documentation is incomplete or changes.
+JSON is appropriate for one low-volume local process. SQLite provides durable local claims and WAL. Multi-instance deployments implement `PublishRepository` and `DistributedLockProvider` using transactional shared infrastructure.

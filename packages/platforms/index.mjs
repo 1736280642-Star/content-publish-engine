@@ -15,6 +15,10 @@ export {
   submitAndPollWechatPublish,
 } from "./wechat-publish.mjs";
 
+export { WechatOfficialApiExecutor } from "./wechat-executor.mjs";
+export { SelectorRegistry } from "./selector-registry.mjs";
+export { AuthorizationAcceptance } from "./authorization.mjs";
+
 export {
   resolveWeixinArticleContent,
 } from "./wechat-content.mjs";
@@ -23,11 +27,3 @@ export {
   collectContentMediaIds,
   rewriteContentMediaSources,
 } from "./media-rewrite.mjs";
-
-export {
-  createBrowserPublishJobStore,
-} from "./job-store.mjs";
-
-export {
-  createPublishIdempotencyLedger,
-} from "./ledger.mjs";

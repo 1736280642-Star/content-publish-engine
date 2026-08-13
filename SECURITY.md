@@ -2,7 +2,7 @@
 
 ## Supported version
 
-Security fixes currently target the latest `0.1.x` release line. The project is experimental and does not promise production support.
+Security fixes currently target the latest `0.2.x` release line. The project is experimental and does not promise production support.
 
 ## Reporting a vulnerability
 
@@ -14,7 +14,7 @@ Until a private contact is configured, keep the repository private rather than p
 
 - Keep API keys and bridge tokens in environment variables or a local secret manager.
 - Never commit `.env`, cookies, browser profiles, private URLs, or captured platform sessions.
-- The default bridge transport accepts only loopback hosts and requires `WECHATSYNC_BRIDGE_TOKEN`.
+- The default bridge transport accepts only loopback hosts and requires `PUBLISH_BRIDGE_TOKEN`.
 - Logs and issue reports must redact authorization headers, provider responses containing private data, and unpublished content.
 
 ## Platform safety

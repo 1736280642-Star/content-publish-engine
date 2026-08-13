@@ -1,7 +1,15 @@
 {
   "name": "content-publish-engine",
-  "version": "0.1.0",
-  "description": "AI content production and multi-platform publish engine for the Chinese content ecosystem",
+  "version": "0.2.0",
+  "description": "Automated multi-platform article publishing with verification and post-publish liveness monitoring",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/1736280642-Star/content-publish-engine.git"
+  },
+  "bugs": {
+    "url": "https://github.com/1736280642-Star/content-publish-engine/issues"
+  },
+  "homepage": "https://github.com/1736280642-Star/content-publish-engine#readme",
   "license": "MIT",
   "keywords": [
     "content-publishing",
@@ -13,27 +21,21 @@
   ],
   "type": "module",
   "exports": {
-    "./content-production": {
-      "types": "./dist/packages/content-production/index.d.ts",
-      "default": "./dist/packages/content-production/index.js"
-    },
-    "./free-production": {
-      "types": "./dist/packages/free-production/index.d.ts",
-      "default": "./dist/packages/free-production/index.js"
-    },
     "./publish-engine": {
       "types": "./dist/packages/publish-engine/index.d.ts",
       "default": "./dist/packages/publish-engine/index.js"
     },
     "./platforms": "./dist/packages/platforms/index.mjs",
-    "./ai-provider": {
-      "types": "./dist/packages/ai-provider/index.d.ts",
-      "default": "./dist/packages/ai-provider/index.js"
-    },
-    "./mcp-server": "./dist/servers/publish-mcp-server.mjs"
+    "./mcp-server": "./dist/servers/publish-mcp-server.mjs",
+    "./http-server": "./dist/servers/publish-http-server.mjs",
+    "./bridge": "./dist/servers/local-publish-bridge.mjs"
   },
   "bin": {
-    "content-publish-engine-mcp": "./dist/servers/publish-mcp-server.mjs"
+    "content-publish-engine-mcp": "./dist/servers/publish-mcp-server.mjs",
+    "content-publish-engine-http": "./dist/servers/publish-http-server.mjs",
+    "content-publish-engine-bridge": "./dist/servers/local-publish-bridge.mjs",
+    "content-publish-engine-worker": "./dist/workers/publish-worker.mjs",
+    "content-publish-engine-authorize": "./dist/scripts/authorize-platform.mjs"
   },
   "scripts": {
     "clean": "node scripts/clean-dist.mjs",
@@ -45,6 +47,10 @@
     "check": "npm run typecheck && npm run check:syntax && npm test && npm run build && npm run test:package",
     "mcp:start": "node --import tsx servers/publish-mcp-server.mjs",
     "mcp:start:dist": "node dist/servers/publish-mcp-server.mjs",
+    "http:start": "node --import tsx servers/publish-http-server.mjs",
+    "bridge:start": "node --import tsx servers/local-publish-bridge.mjs",
+    "worker:start": "node --import tsx workers/publish-worker.mjs",
+    "authorize": "node scripts/authorize-platform.mjs",
     "prebuild": "npm run clean",
     "prepack": "npm run build",
     "prepublishOnly": "npm run check"
@@ -54,12 +60,12 @@
     "zod": "^4.2.0"
   },
   "devDependencies": {
-    "@types/node": "^20.14.0",
+    "@types/node": "^24.0.0",
     "tsx": "^4.7.0",
     "typescript": "^5.5.0"
   },
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=22.5.0"
   },
   "files": [
     "dist/",

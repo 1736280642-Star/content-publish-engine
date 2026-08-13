@@ -2,7 +2,7 @@ import { getPublishAdapter } from "content-publish-engine/publish-engine";
 
 const transport = {
   async checkAuth(platform) {
-    return { ok: true, status: "ready", message: `${platform} credentials are available in the host service.` };
+    return { ok: true, status: "ready", message: `${platform} credentials are available in the host service.`, nextAction: "Publish an authorized article." };
   },
   async publish(platform, payload) {
     return {
@@ -20,7 +20,8 @@ const transport = {
       status: "published_verified",
       verifyStatus: "verified",
       externalTaskId: result.externalTaskId,
-      publicUrl: "https://example.com/published-article"
+      publicUrl: "https://example.com/published-article",
+      nextAction: "Continue scheduled liveness checks."
     };
   }
 };

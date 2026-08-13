@@ -1,13 +1,8 @@
-/**
- * Public contracts shared by publish adapters, transports, and lifecycle services.
- * These types are self-contained and do not reference other business types.
- */
+/** Public, application-neutral contracts for publish execution and verification. */
 
-export type DirectPublishPlatformKey = "wechat" | "juejin" | "csdn" | "zhihu";
+export type PublishPlatformKey = string;
 
-export type ChannelKey = "wechat" | "csdn" | "juejin" | "zhihu_toutiao_general";
-
-export type PublishScheduleStatus =
+export type PublishJobStatus =
   | "scheduled"
   | "precheck_failed"
   | "publishing"
@@ -25,23 +20,7 @@ export type PublishScheduleStatus =
   | "manual_takeover_required"
   | "pending_config";
 
-export type PublishAttemptStatus =
-  | "precheck_failed"
-  | "publishing"
-  | "published_verified"
-  | "published_pending_url"
-  | "pending_verify"
-  | "public_observed"
-  | "stable_published"
-  | "platform_rejected"
-  | "removed_after_publish"
-  | "risk_blocked"
-  | "verification_timeout"
-  | "auth_expired"
-  | "failed"
-  | "manual_takeover_required"
-  | "pending_config";
-
+export type PublishAttemptStatus = Exclude<PublishJobStatus, "scheduled">;
 export type PublishFailureCode =
   | "auth_required"
   | "pending_config"
@@ -59,83 +38,57 @@ export type PublishFailureCode =
   | "manual_takeover_required"
   | "duplicate_protected"
   | "adapter_failed"
+  | "structure_changed"
   | "unknown";
 
 export type PublishUrlStatus = "pending" | "provisional" | "stable" | "removed" | "rejected";
 
-export interface PublishPlatformResult {
-  platform: DirectPublishPlatformKey;
-  scheduleId: string;
-  status: PublishScheduleStatus;
-  platformArticleId?: string;
-  publicUrl?: string;
-  urlStatus?: PublishUrlStatus;
-  firstPublicObservedAt?: string;
-  lastVerifiedAt?: string;
-  stablePublishedAt?: string;
-  removedAt?: string;
-  failureCode?: PublishFailureCode;
-  failureReason?: string;
+export interface ArticleAssetInput {
+  id?: string;
+  role: "cover" | "inline";
+  source: { type: "url"; url: string } | { type: "file"; path: string } | { type: "platform_media"; mediaId: string };
+  alt?: string;
+  mimeType?: string;
 }
 
-export interface PublishRecord {
-  id: string;
-  draftId: string;
-  channel: ChannelKey;
+export interface PublishArticleInput {
+  sourceId?: string;
   title: string;
-  publishStatus: "queued" | "published" | "url_filled" | "failed";
-  plannedPublishDate?: string;
-  publishedUrl?: string;
-  publishedAt?: string;
-  urlStatus?: PublishUrlStatus;
-  firstPublicObservedAt?: string;
-  lastVerifiedAt?: string;
-  stablePublishedAt?: string;
-  removedAt?: string;
-  exportedAt?: string;
-  notes?: string;
-  platformResults?: Partial<Record<DirectPublishPlatformKey, PublishPlatformResult>>;
-  channelMetrics?: {
-    impressions?: number;
-    views?: number;
-    likes?: number;
-    favorites?: number;
-    comments?: number;
-    shares?: number;
-    importedAt: string;
-  };
+  markdown: string;
+  summary?: string;
+  contentFormat?: "markdown" | "html";
+  scheduledAt?: string;
+  categoryId?: string;
+  tagIds?: string[];
+  assets?: ArticleAssetInput[];
+  metadata?: Record<string, unknown>;
 }
 
 export interface PlatformPublishPayload {
-  scheduleId: string;
+  jobId: string;
   contentHash: string;
   idempotencyKey: string;
   title: string;
   markdown: string;
-  contentFormat?: "markdown" | "wechat_html";
   summary?: string;
+  contentFormat?: "markdown" | "html";
   scheduledAt: string;
-  sourceDraftId: string;
-  publishRecordId?: string;
-  matrixItemId?: string;
-  coverMediaId?: string;
+  sourceId?: string;
   categoryId?: string;
   tagIds?: string[];
-  externalDraftId?: string;
+  assets?: ArticleAssetInput[];
+  metadata?: Record<string, unknown>;
+  platformDraftId?: string;
   editorUrl?: string;
   dryRun?: boolean;
 }
 
-export interface PublishSchedule {
+export interface PublishJob {
   id: string;
-  platform: DirectPublishPlatformKey;
-  status: PublishScheduleStatus;
+  platform: PublishPlatformKey;
+  status: PublishJobStatus;
   scheduledAt: string;
-  draftId: string;
-  platformVariantId?: string;
-  publishRecordId?: string;
-  matrixItemId?: string;
-  contentFormat?: "markdown" | "wechat_html";
+  article: PublishArticleInput;
   contentHash: string;
   idempotencyKey: string;
   attemptIds: string[];
@@ -143,6 +96,8 @@ export interface PublishSchedule {
   publishedAt?: string;
   platformArticleId?: string;
   externalTaskId?: string;
+  platformDraftId?: string;
+  editorUrl?: string;
   publicUrl?: string;
   urlStatus?: PublishUrlStatus;
   firstPublicObservedAt?: string;
@@ -153,20 +108,22 @@ export interface PublishSchedule {
   removedAt?: string;
   verificationCount?: number;
   consecutiveVerificationFailures?: number;
-  pendingCsvReturn?: boolean;
+  publicUrlPending?: boolean;
   failureCode?: PublishFailureCode;
   failureReason?: string;
   nextAction?: string;
   retryCount: number;
   manualTakeoverReason?: string;
+  leaseOwner?: string;
+  leaseExpiresAt?: string;
   createdAt: string;
-  updatedAt?: string;
+  updatedAt: string;
 }
 
 export interface PublishAttempt {
   id: string;
-  scheduleId: string;
-  platform: DirectPublishPlatformKey;
+  jobId: string;
+  platform: PublishPlatformKey;
   contentHash: string;
   idempotencyKey: string;
   status: PublishAttemptStatus;
@@ -182,7 +139,7 @@ export interface PublishAttempt {
   publicUrl?: string;
   urlStatus?: PublishUrlStatus;
   verificationKind?: "initial" | "liveness";
-  pendingCsvReturn?: boolean;
+  publicUrlPending?: boolean;
   failureCode?: PublishFailureCode;
   failureReason?: string;
   nextAction?: string;

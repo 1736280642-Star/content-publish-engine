@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "platform": "example",
+  "version": "2026.1",
+  "selectors": {
+    "title": { "name": "title", "selector": "[data-role=title]", "required": true },
+    "editor": { "name": "editor", "selector": "[data-role=editor]", "required": true },
+    "publishButton": { "name": "publish", "selector": "button[data-action=publish]", "required": true }
+  }
+}

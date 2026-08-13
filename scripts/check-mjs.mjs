@@ -2,7 +2,7 @@ import { readdir } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
-const roots = ["packages/platforms", "servers", "scripts", "tests"];
+const roots = ["packages/platforms", "servers", "workers", "scripts", "tests"];
 const projectRoot = new URL("../", import.meta.url);
 const files = [];
 

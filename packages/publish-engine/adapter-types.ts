@@ -1,4 +1,4 @@
-import type { DirectPublishPlatformKey, PlatformPublishPayload, PublishAttemptStatus, PublishFailureCode } from "./types.js";
+import type { PlatformPublishPayload, PublishAttemptStatus, PublishFailureCode, PublishPlatformKey } from "./types.js";
 
 export interface AuthStatus {
   ok: boolean;
@@ -23,11 +23,11 @@ export interface PublishResult {
   publishStatus?: "submitted" | "confirmed" | "pending_review" | "failed";
   platformArticleId?: string;
   externalTaskId?: string;
-  externalDraftId?: string;
+  platformDraftId?: string;
   editorUrl?: string;
   publicUrl?: string;
   idempotencyKey?: string;
-  pendingCsvReturn?: boolean;
+  publicUrlPending?: boolean;
   failureCode?: PublishFailureCode;
   failureReason?: string;
   nextAction: string;
@@ -42,16 +42,32 @@ export interface VerifyResult {
   platformArticleId?: string;
   externalTaskId?: string;
   publicUrl?: string;
-  pendingCsvReturn?: boolean;
+  publicUrlPending?: boolean;
   failureCode?: PublishFailureCode;
   failureReason?: string;
   nextAction: string;
 }
 
 export interface PublishAdapter {
-  platform: DirectPublishPlatformKey;
+  platform: PublishPlatformKey;
   checkAuth(): Promise<AuthStatus>;
   validatePayload(payload: PlatformPublishPayload): Promise<ValidationResult>;
   publish(payload: PlatformPublishPayload): Promise<PublishResult>;
   verify(result: PublishResult): Promise<VerifyResult>;
+}
+
+export interface PlatformCapabilities {
+  directPublish: boolean;
+  scheduledPublish: boolean;
+  publicUrlLookup: boolean;
+  livenessCheck: boolean;
+  coverUpload: boolean;
+  inlineImageUpload: boolean;
+}
+
+export interface PlatformPlugin {
+  key: PublishPlatformKey;
+  displayName: string;
+  adapter: PublishAdapter;
+  capabilities: PlatformCapabilities;
 }

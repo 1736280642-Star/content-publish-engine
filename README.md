@@ -1,120 +1,121 @@
 # content-publish-engine
 
-An experimental TypeScript engine for governed AI content production and multi-platform publishing in the Chinese content ecosystem.
+An automation engine that takes a completed article, publishes it to external platforms, discovers the public URL, and keeps verifying that the article remains live.
 
-> Status: `v0.1 experimental`. The deterministic production, validation, persistence, and lifecycle primitives are usable. Real publishing requires an authorized local bridge or a custom transport and must be validated against each platform's current rules.
+It deliberately does **not** generate, rewrite, plan, or score content. Your CMS, editor, AI agent, or Markdown workflow owns the article; this engine owns reliable publication.
 
-## What it provides
+## Publishing lifecycle
 
-- A frozen production contract that combines evidence, product, content-type, channel, expression, and promotion rules.
-- Deterministic output checks for structure, traceable facts, prohibited terms, CTA integrity, URLs, and cross-channel similarity.
-- WeChat, Juejin, CSDN, and Zhihu adapter contracts with `mock`, disabled, and real modes.
-- Idempotent publish jobs, platform locks, persisted results, verification backoff, liveness states, and reliability metrics.
-- Qwen, DeepSeek, and Doubao through an OpenAI-compatible provider interface.
-- A standalone MCP server exposing publish preparation, execution, verification, and liveness tools.
+```text
+completed article -> scheduled job -> authenticated publish -> platform acceptance
+                  -> public URL discovery -> provisional public observation
+                  -> 24h check -> 72h stable publication -> removal detection
+```
 
-## Safety model
+Unlike draft-sync tools, a successful job means the engine performed the publish action and entered verification. Draft creation alone is not treated as publication.
 
-Real publishing is disabled by default. Without `DIRECT_PUBLISH_ENABLED=true`, adapters run in mock mode unless `DIRECT_PUBLISH_MOCK=false` explicitly disables publishing. The built-in bridge transport only accepts loopback hosts and requires a bearer token.
+## Included capabilities
 
-The project does not ship browser selectors, cookies, platform credentials, or mechanisms intended to bypass CAPTCHA or platform risk controls. Use only accounts, APIs, and automation methods you are authorized to operate.
+- Adapter registry for WeChat Official Account, Juejin, CSDN, Zhihu, and third-party plugins.
+- Idempotent jobs, content hashes, platform write locks, worker leases, and duplicate protection.
+- Immediate and scheduled publication through one `PublishOrchestrator`.
+- Read-only verification that never repeats an ambiguous publish action.
+- Public URL discovery, verification backoff, 24/72-hour survival checks, stable publication, rejection, timeout, and removal states.
+- JSON and SQLite repositories plus a distributed lock/repository contract.
+- Long-running worker, MCP server, HTTP API, and authenticated local bridge.
+- Webhook events, durable audit events, and in-process telemetry primitives.
+- Versioned official-rule registry with source metadata.
+- Generic asset resolution/upload contracts.
+- Versioned browser-selector bundles and structure-change detection.
+- An included WeChat Official Account executor using the official draft and free-publish APIs.
 
 ## Requirements
 
-- Node.js 20 or newer
-- npm 10 or newer recommended
-
-## Install and verify
+- Node.js 22.5 or newer. Node 24 LTS is recommended.
 
 ```bash
 npm ci
 npm run check
 ```
 
-`npm run check` runs TypeScript checks, JavaScript syntax checks, tests, a clean build, and import checks against the built package.
+## SDK
 
-## Package entry points
+```ts
+import {
+  PublishOrchestrator,
+  SqlitePublishRepository
+} from "content-publish-engine/publish-engine";
 
-```typescript
-import { compileProductionContract } from "content-publish-engine/content-production";
-import { getCalendarMonthBounds } from "content-publish-engine/free-production";
-import { getPublishAdapter, setDefaultTransport } from "content-publish-engine/publish-engine";
-import { createBrowserPublishJobStore } from "content-publish-engine/platforms";
-import { callAiProvider } from "content-publish-engine/ai-provider";
+const repository = new SqlitePublishRepository(".data/publish.db");
+const engine = new PublishOrchestrator({ repository });
+
+const { job } = await engine.createJob({
+  jobId: "request-42",
+  platform: "wechat",
+  article: {
+    sourceId: "cms-article-42",
+    title: "A completed article",
+    markdown: "<p>Final HTML or Markdown body</p>",
+    scheduledAt: new Date().toISOString()
+  }
+});
+
+await engine.runPublishJob(job.id);
 ```
 
-The repository can be used directly after `npm run build`. Publishing to npm is optional; before doing so, add the final GitHub `repository`, `bugs`, and `homepage` metadata to `package.json`.
-
-## Mock publishing
-
-```typescript
-import { getPublishAdapter } from "content-publish-engine/publish-engine";
-
-const adapter = getPublishAdapter("juejin");
-const auth = await adapter.checkAuth();
-// Mock mode is the default and never writes to an external platform.
-```
-
-## Real publishing
-
-The default `BridgeTransport` calls an authorized local service:
-
-```dotenv
-DIRECT_PUBLISH_ENABLED=true
-WECHATSYNC_BRIDGE_URL=http://127.0.0.1:9528
-WECHATSYNC_BRIDGE_TOKEN=replace-with-a-local-secret
-```
-
-The bridge must implement `POST /auth/check`, `POST /publish`, and `POST /publish/verify`. A custom transport is usually the simplest integration path; see [`examples/custom-transport.mjs`](examples/custom-transport.mjs) and [`docs/adapter-guide.md`](docs/adapter-guide.md).
-
-## MCP server
-
-From a source checkout:
+## Runtime entry points
 
 ```bash
 npm run mcp:start
+npm run http:start
+npm run worker:start
+npm run bridge:start
 ```
 
-From a built or installed package:
+The worker processes due verification jobs before new publish jobs. SQLite is the default runtime repository; set `PUBLISH_REPOSITORY=json` for low-volume local JSON storage.
+
+HTTP endpoints:
+
+- `POST /v1/jobs`
+- `GET /v1/jobs`
+- `GET /v1/jobs/:id`
+- `POST /v1/jobs/:id/run`
+- `POST /v1/jobs/:id/verify`
+- `POST /v1/run-due`
+- `GET /v1/reliability`
+- `GET /v1/telemetry`
+
+MCP tools include platform discovery/auth, preflight, job creation/execution/read-only verification, due-job execution, liveness checks, and reliability metrics.
+
+## Real platform execution
+
+The built-in transport calls an authenticated loopback bridge:
+
+```dotenv
+PUBLISH_ENABLED=true
+PUBLISH_BRIDGE_URL=http://127.0.0.1:9528
+PUBLISH_BRIDGE_TOKEN=replace-with-a-local-secret
+```
+
+The repository includes a WeChat Official Account executor. Other platforms use the same plugin and transport contracts and require an authorized executor supplied by the operator. The project never ships account cookies or attempts to bypass CAPTCHA or risk controls.
+
+Before the first live write, record the operator's explicit authorization locally:
 
 ```bash
-content-publish-engine-mcp
+npm run authorize -- wechat operator-name
 ```
 
-The server persists jobs and publish results to `.data/publish-jobs.json` by default. Override it with `PUBLISH_JOB_STORE_PATH`.
+The authorization record contains no platform credential and is ignored by Git through `.data/`.
 
-Available tools:
+For the included WeChat executor, also set `WECHAT_APP_ID` and `WECHAT_APP_SECRET`, start the bridge, then run the worker or call the HTTP/MCP run endpoint. The executor creates the official draft when needed, submits the free-publish action, and queries the same task for its public URL; it never treats draft creation as successful publication.
 
-- `platform_auth_probe`
-- `publish_content_preflight`
-- `publish_job_create`
-- `publish_job_run`
-- `publish_job_get`
-- `publish_job_verify`
-- `publish_liveness_check`
-- `publish_verification_due`
+See [adapter guide](docs/adapter-guide.md), [official rule policy](docs/official-platform-rules.md), and [live authorization](docs/live-authorization.md).
 
-`publish_content_preflight` does not score writing quality or impose default limits on length, promotional wording, technical depth, or external links. It checks only required payload fields and platform-specific rules backed by identified official sources. Every result includes an `officialRuleCoverage` status so callers can distinguish verified coverage from missing public documentation. See [`docs/official-platform-rules.md`](docs/official-platform-rules.md).
+## Storage and scale
 
-## Content media protocol
-
-`content-media://media-asset-<uuid>` references can be rewritten to HTTPS URLs through `rewriteContentMediaSources`. The resolver is provided by the host application; the package does not assume a specific media backend.
-
-## Configuration
-
-Copy `.env.example` and supply only the providers and publishing mode you use. Never commit the resulting `.env` file. See [`docs/architecture.md`](docs/architecture.md) for component boundaries and durability behavior.
-
-## Known limitations
-
-- Platform adapters define payload validation and lifecycle behavior; real platform actions and final policy enforcement still require a bridge or custom transport.
-- Official rule coverage is intentionally partial where a platform does not publish a stable, machine-verifiable publishing contract.
-- No live platform credentials are exercised in CI.
-- File-backed job persistence is intended for a single local process or low-volume deployment, not distributed workers.
-- Provider output quality and platform policy compliance remain the operator's responsibility.
-
-## Contributing and security
-
-See [`CONTRIBUTING.md`](CONTRIBUTING.md) before opening a pull request. Report vulnerabilities according to [`SECURITY.md`](SECURITY.md), not through a public issue.
+- JSON: single-process local use.
+- SQLite: durable local service with WAL and transactional claims/locks.
+- Distributed deployments: implement `PublishRepository` and `DistributedLockProvider` with your database and lock service.
 
 ## License
 

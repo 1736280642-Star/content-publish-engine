@@ -2,12 +2,12 @@
 
 ## Development workflow
 
-1. Use Node.js 20 or newer.
+1. Use Node.js 22.5 or newer; Node.js 24 LTS is recommended.
 2. Run `npm ci`.
 3. Add or update tests with the change.
 4. Run `npm run check` before opening a pull request.
 
-Keep platform-specific network actions behind `FormalPublishTransport`. Domain packages must remain usable without platform credentials or the original host application.
+Keep platform-specific network actions behind `FormalPublishTransport`. Core packages must remain usable without platform credentials or any host application.
 
 ## Pull requests
 

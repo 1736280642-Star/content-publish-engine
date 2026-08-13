@@ -1,0 +1,40 @@
+import assert from "node:assert/strict";
+import { mkdtemp, readFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import test from "node:test";
+import { AuthorizationAcceptance } from "../packages/platforms/authorization.mjs";
+import { createLocalPublishBridge } from "../servers/local-publish-bridge.mjs";
+import { createPublishHttpServer } from "../servers/publish-http-server.mjs";
+import { runPublishWorker } from "../workers/publish-worker.mjs";
+import { DefaultAssetResolver, resolveAndUploadAssets } from "../packages/publish-engine/assets.js";
+import { WebhookEventSink } from "../packages/publish-engine/events.js";
+import { JsonPublishRepository } from "../packages/publish-engine/json-repository.js";
+import { PublishOrchestrator } from "../packages/publish-engine/orchestrator.js";
+import { PlatformRegistry } from "../packages/publish-engine/platform-registry.js";
+import { PublishTelemetry } from "../packages/publish-engine/observability.js";
+import { DistributedLockingRepository } from "../packages/publish-engine/repository.js";
+
+const listen = (server) => new Promise((resolve) => server.listen(0, "127.0.0.1", () => resolve(server.address().port)));
+const close = (server) => new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+const adapter = { platform: "test", async checkAuth() { return { ok: true, status: "ready", message: "ready", nextAction: "publish" }; }, async validatePayload() { return { ok: true, message: "valid", nextAction: "publish" }; }, async publish(payload) { return { ok: true, status: "published_verified", mode: "real", publishStatus: "confirmed", idempotencyKey: payload.idempotencyKey, publicUrl: "https://example.test/article" }; }, async verify(result) { return { ok: true, status: "published_verified", publishStatus: "confirmed", verifyStatus: "verified", publicUrl: result.publicUrl }; } };
+const plugin = { key: "test", displayName: "Test Platform", adapter, capabilities: { directPublish: true, scheduledPublish: true, publicUrlLookup: true, livenessCheck: true, coverUpload: true, inlineImageUpload: true } };
+
+test("HTTP API exposes plugins, creates and runs a durable publication, and reports telemetry", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "publish-http-")); const repository = new JsonPublishRepository(join(dir, "state.json")); const registry = new PlatformRegistry(); registry.register(plugin); const telemetry = new PublishTelemetry(); const orchestrator = new PublishOrchestrator({ repository, registry, telemetry }); const server = createPublishHttpServer({ runtime: { repository, registry, telemetry, orchestrator } }); const port = await listen(server);
+  try { const platforms = await fetch(`http://127.0.0.1:${port}/v1/platforms`).then((value) => value.json()); assert.equal(platforms.platforms[0].key, "test"); const created = await fetch(`http://127.0.0.1:${port}/v1/jobs`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ platform: "test", article: { title: "Title", markdown: "Body" } }) }).then((value) => value.json()); const run = await fetch(`http://127.0.0.1:${port}/v1/jobs/${created.job.id}/run`, { method: "POST" }).then((value) => value.json()); assert.equal(run.status, "public_observed"); const metrics = await fetch(`http://127.0.0.1:${port}/v1/telemetry`).then((value) => value.json()); assert.ok(Object.keys(metrics.counters).some((key) => key.startsWith("publish_events_total"))); } finally { await close(server); }
+});
+
+test("local bridge authenticates requests and enforces recorded human authorization", async () => { let accepted = 0; const executor = { checkAuth: adapter.checkAuth, publish: async () => ({ ok: true, status: "published_verified" }), verify: async () => ({ ok: true, verifyStatus: "verified" }) }; const server = createLocalPublishBridge({ token: "bridge-test", executors: new Map([["test", executor]]), authorization: { async assertPlatformAccepted(platform) { assert.equal(platform, "test"); accepted += 1; } } }); const port = await listen(server); try { const unauthorized = await fetch(`http://127.0.0.1:${port}/publish`, { method: "POST" }); assert.equal(unauthorized.status, 401); const published = await fetch(`http://127.0.0.1:${port}/publish`, { method: "POST", headers: { authorization: "Bearer bridge-test", "content-type": "application/json" }, body: JSON.stringify({ platform: "test" }) }); assert.equal(published.status, 200); assert.equal(accepted, 1); } finally { await close(server); } });
+
+test("local bridge explains how to resolve missing live authorization", async () => { const server = createLocalPublishBridge({ token: "bridge-test", executors: new Map([["test", { publish: async () => ({ ok: true }) }]]), authorization: { async assertPlatformAccepted() { throw new Error("Acceptance missing."); } } }); const port = await listen(server); try { const response = await fetch(`http://127.0.0.1:${port}/publish`, { method: "POST", headers: { authorization: "Bearer bridge-test", "content-type": "application/json" }, body: JSON.stringify({ platform: "test" }) }); const result = await response.json(); assert.equal(response.status, 403); assert.equal(result.failureCode, "manual_takeover_required"); assert.match(result.nextAction, /npm run authorize/); } finally { await close(server); } });
+
+test("authorization acceptance persists without storing credentials", async () => { const dir = await mkdtemp(join(tmpdir(), "publish-auth-")); const file = join(dir, "authorization.json"); const acceptance = new AuthorizationAcceptance(file); await acceptance.record({ platform: "test", acceptedBy: "operator" }); await acceptance.assertPlatformAccepted("test"); const raw = await readFile(file, "utf8"); assert.doesNotMatch(raw, /token|secret|cookie/i); });
+
+test("worker processes one due cycle and exits cleanly", async () => { let cycles = 0; await runPublishWorker({ once: true, runtime: { orchestrator: { async runDuePublishJobs(input) { assert.ok(input.workerId); return [{ id: "job" }]; } } }, onCycle(event) { cycles += 1; assert.equal(event.processed, 1); } }); assert.equal(cycles, 1); });
+
+test("asset pipeline resolves bytes, reuses platform media, and uploads unresolved assets", async () => { const resolver = new DefaultAssetResolver(async () => new Response(new Uint8Array([1, 2, 3]), { status: 200, headers: { "content-type": "image/png" } })); const uploaded = await resolveAndUploadAssets([{ role: "cover", source: { type: "url", url: "https://example.test/cover.png" } }, { role: "inline", source: { type: "platform_media", mediaId: "existing" } }], "test", resolver, { async upload(asset) { assert.equal(asset.bytes.length, 3); return { ...asset, mediaId: "uploaded" }; } }); assert.deepEqual(uploaded.map((item) => item.mediaId), ["uploaded", "existing"]); });
+
+test("webhook sink emits a complete audit event with authentication", async () => { let request; const sink = new WebhookEventSink("https://hooks.example.test/publish", "hook-secret", async (url, init) => { request = { url, init }; return new Response(null, { status: 204 }); }); await sink.emit({ id: "event", type: "publish.stable", jobId: "job", platform: "test", occurredAt: new Date().toISOString() }); assert.equal(request.init.headers.authorization, "Bearer hook-secret"); assert.equal(JSON.parse(request.init.body).jobId, "job"); });
+
+test("distributed locking repository delegates shared locks independently from job storage", async () => { const dir = await mkdtemp(join(tmpdir(), "publish-lock-")); const repository = new JsonPublishRepository(join(dir, "state.json")); const calls = []; const wrapped = new DistributedLockingRepository(repository, { async acquire(key, owner, leaseMs) { calls.push(["acquire", key, owner, leaseMs]); return true; }, async renew() { return true; }, async release(key, owner) { calls.push(["release", key, owner]); } }); assert.equal(await wrapped.acquireLock("platform:test", "worker", 1000), true); await wrapped.releaseLock("platform:test", "worker"); assert.deepEqual(calls.map((item) => item[0]), ["acquire", "release"]); });
